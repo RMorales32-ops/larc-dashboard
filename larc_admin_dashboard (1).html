@@ -1,0 +1,220 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LARC Admin Dashboard</title>
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .navbar {
+            background-color: #002855;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar h1 {
+            margin: 0;
+        }
+        .container {
+            padding: 2rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-group button {
+            background-color: #0072CE;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #005bb5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 0.5rem;
+            text-align: left;
+        }
+        th {
+            background-color: #0072CE;
+            color: white;
+            cursor: pointer;
+        }
+        .actions button {
+            background-color: #0072CE;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .actions button:hover {
+            background-color: #005bb5;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>LARC Admin Dashboard</h1>
+        <div>
+            <button onclick="logout()">Logout</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="form-group">
+            <label for="jobTitle">Job Title</label>
+            <input type="text" id="jobTitle">
+        </div>
+        <div class="form-group">
+            <label for="employer">Employer</label>
+            <input type="text" id="employer">
+        </div>
+        <div class="form-group">
+            <label for="datePosted">Date Posted</label>
+            <input type="date" id="datePosted">
+        </div>
+        <div class="form-group">
+            <label for="jobLink">Job Link</label>
+            <input type="url" id="jobLink">
+        </div>
+        <div class="form-group">
+            <button onclick="addOrUpdateJob()">Post Job</button>
+            <button onclick="fetchJobData()">Fetch Info</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Job Title</th>
+                    <th onclick="sortTable(1)">Employer</th>
+                    <th onclick="sortTable(2)">Date Posted</th>
+                    <th>Job Link</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="jobTableBody">
+                <!-- Job rows will be added here dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let editingRow = null;
+
+        async function fetchJobData() {
+            const url = document.getElementById('jobLink').value;
+
+            const response = await fetch('http://localhost:5000/api/fetch-job-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            const data = await response.json();
+
+            if (data.title) {
+                document.getElementById('jobTitle').value = data.title;
+                document.getElementById('employer').value = data.employer;
+                document.getElementById('datePosted').value = data.date;
+            } else {
+                alert('Could not fetch job data.');
+            }
+        }
+
+        function addOrUpdateJob() {
+            const jobTitle = document.getElementById('jobTitle').value;
+            const employer = document.getElementById('employer').value;
+            const datePosted = document.getElementById('datePosted').value;
+            const jobLink = document.getElementById('jobLink').value;
+
+            if (editingRow) {
+                editingRow.cells[0].innerText = jobTitle;
+                editingRow.cells[1].innerText = employer;
+                editingRow.cells[2].innerText = datePosted;
+                editingRow.cells[3].innerHTML = `<a href="${jobLink}" target="_blank">View Job</a>`;
+                editingRow = null;
+            } else {
+                const table = document.getElementById('jobTableBody');
+                const row = table.insertRow();
+                row.insertCell(0).innerText = jobTitle;
+                row.insertCell(1).innerText = employer;
+                row.insertCell(2).innerText = datePosted;
+                row.insertCell(3).innerHTML = `<a href="${jobLink}" target="_blank">View Job</a>`;
+                const actionsCell = row.insertCell(4);
+                actionsCell.classList.add('actions');
+                actionsCell.innerHTML = `
+                    <button onclick="editJob(this)">Edit</button>
+                    <button onclick="deleteJob(this)">Delete</button>
+                `;
+            }
+
+            clearForm();
+        }
+
+        function editJob(button) {
+            editingRow = button.parentElement.parentElement;
+            document.getElementById('jobTitle').value = editingRow.cells[0].innerText;
+            document.getElementById('employer').value = editingRow.cells[1].innerText;
+            document.getElementById('datePosted').value = editingRow.cells[2].innerText;
+            document.getElementById('jobLink').value = editingRow.cells[3].querySelector('a').href;
+        }
+
+        function deleteJob(button) {
+            const row = button.parentElement.parentElement;
+            row.remove();
+        }
+
+        function clearForm() {
+            document.getElementById('jobTitle').value = '';
+            document.getElementById('employer').value = '';
+            document.getElementById('datePosted').value = '';
+            document.getElementById('jobLink').value = '';
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.querySelector('table');
+            const rows = Array.from(table.rows).slice(1);
+            const sortedRows = rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].innerText;
+                const bText = b.cells[columnIndex].innerText;
+                return aText.localeCompare(bText);
+            });
+
+            const tableBody = document.getElementById('jobTableBody');
+            tableBody.innerHTML = '';
+            sortedRows.forEach(row => tableBody.appendChild(row));
+        }
+
+        function logout() {
+            // Implement logout functionality here
+            alert('Logged out');
+        }
+    </script>
+</body>
+</html>
